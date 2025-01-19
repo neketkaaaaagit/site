@@ -1,31 +1,53 @@
-name: Deploy to GitHub Pages
+name: Deploy Vite App to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]  # Триггер на пуш в ветку main
+  workflow_dispatch:  # Позволяет вручную запускать workflow
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4  # Загружаем код из репозитория
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18  # Указание версии Node.js для проекта
+
+      - name: Install Dependencies
+        run: npm install  # Устанавливаем зависимости
+
+      - name: Build Project
+        run: npm run build  # Строим проект Vite (вывод в папку dist)
+
+      - name: Add .nojekyll
+        run: echo "" > dist/.nojekyll  # Добавляем файл .nojekyll, чтобы отключить обработку Jekyll на GitHub Pages
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist  # Загружаем собранную папку dist
+
   deploy:
     runs-on: ubuntu-latest
-
+    needs: build  # Этот шаг зависит от успешной сборки
+    permissions:
+      pages: write
+      id-token: write
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '14'
-
-    - name: Install dependencies
-      run: npm install
-
-    - name: Build
-      run: npm run build
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.ACTIONS_TOKEN }}  # Новый токен
-        publish_dir: ./public
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.ACTIONS_TOKEN }}  # Используем токен из Secrets
